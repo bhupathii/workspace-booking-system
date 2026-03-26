@@ -5,7 +5,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: '0 * * * *'   # every hour
+    - cron: '0 */6 * * *'   # every 6 hours
 
 permissions:
   contents: write
@@ -41,10 +41,14 @@ jobs:
           for BRANCH in $BRANCHES; do
             echo "--- Syncing branch: $BRANCH ---"
             git fetch origin "$BRANCH" || { echo "Could not fetch $BRANCH, skipping."; continue; }
-            git checkout "$BRANCH"
-            git merge --no-edit origin/main && \
+            git checkout "$BRANCH" || { echo "Could not checkout $BRANCH, skipping."; git checkout main; continue; }
+            if git merge --no-edit origin/main; then
               git push origin "$BRANCH" && \
-              echo "Successfully synced $BRANCH with main." || \
+                echo "Successfully synced $BRANCH with main." || \
+                echo "Push failed for $BRANCH (check branch protection rules or permissions)."
+            else
               echo "Merge conflict on $BRANCH – skipping (manual resolution required)."
+              git merge --abort
+            fi
             git checkout main
           done
