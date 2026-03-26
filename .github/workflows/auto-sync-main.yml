@@ -1,0 +1,50 @@
+name: Auto-sync branches with main
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 * * * *'   # every hour
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    name: Merge main into open PR branches
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Merge main into all open PR branches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Collect unique head branches from all open PRs targeting main
+          BRANCHES=$(gh pr list --base main --state open --json headRefName \
+            --jq '.[].headRefName' | sort -u)
+
+          if [ -z "$BRANCHES" ]; then
+            echo "No open PRs targeting main found. Nothing to sync."
+            exit 0
+          fi
+
+          for BRANCH in $BRANCHES; do
+            echo "--- Syncing branch: $BRANCH ---"
+            git fetch origin "$BRANCH" || { echo "Could not fetch $BRANCH, skipping."; continue; }
+            git checkout "$BRANCH"
+            git merge --no-edit origin/main && \
+              git push origin "$BRANCH" && \
+              echo "Successfully synced $BRANCH with main." || \
+              echo "Merge conflict on $BRANCH – skipping (manual resolution required)."
+            git checkout main
+          done
