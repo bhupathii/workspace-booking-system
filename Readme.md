@@ -1,4 +1,4 @@
-# Smart Workspace Booking System
+# Smart Workspace Booking System 🌿
 
 Smart Workspace Booking System | Spring Boot + MySQL + JS
 
